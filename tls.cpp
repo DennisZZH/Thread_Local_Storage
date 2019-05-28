@@ -58,15 +58,19 @@ void tls_init(){
 int tls_create(unsigned int size){
 
     if(numOfTLS == 0){
+        lock();
         tls_init();
+        unlock();
     }
 
     if(size <= 0){
         return -1;
     }
 
+    lock();
     pthread_t thread_id = pthread_self();
     if(tls_map.find(thread_id) != tls_map.end()){
+        unlock();
         return -1;
     }
 
@@ -85,15 +89,20 @@ int tls_create(unsigned int size){
 
     tls_map.insert(pair<pthread_t, TLS>(thread_id, new_tls));
 
+    unlock();
+
     return 0;   // If success
 }
 
 
 int tls_destroy(){
 
+    lock();
+
     pthread_t thread_id = pthread_self();
     auto it = tls_map.find(thread_id);
     if(it == tls_map.end()){
+        unlock();
         return -1;
     }
 
@@ -106,6 +115,8 @@ int tls_destroy(){
         }
     }
     tls_map.erase(it);
+
+    unlock();
 
     return 0;
 }
@@ -129,13 +140,17 @@ void tls_unprotect(Page *p) {
 
 int tls_read(unsigned int offset, unsigned int length, char *buffer){
 
+    lock();
+
     pthread_t thread_id = pthread_self();
     auto it = tls_map.find(thread_id);
     if(it == tls_map.end()){
+        unlock();
         return -1;
     }
 
     if(offset + length > it->second.tls_size){
+        unlock();
         return -1;
     }
 
@@ -158,19 +173,25 @@ int tls_read(unsigned int offset, unsigned int length, char *buffer){
         tls_protect(it->second.pages[i]);
     }
     
+    unlock();
+
     return 0;
 }
 
 
 int tls_write(unsigned int offset, unsigned int length, char *buffer){
 
+    lock();
+
     pthread_t thread_id = pthread_self();
     auto it = tls_map.find(thread_id);
     if(it == tls_map.end()){
+        unlock();
         return -1;
     }
 
     if(offset + length > it->second.tls_size){
+        unlock();
         return -1;
     }
 
@@ -188,10 +209,8 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
 
         if (p->reference_count > 1) {
             // this page is shared, create a private copy (COW) */ 
-            //Do copy on Write here
             copy = (Page *) calloc(1, sizeof(Page));
             copy->page_address = (unsigned long) mmap(NULL, PAGESIZE, PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
-            //printf("[+] allocated %x\n", copy->page_address); 
             copy->reference_count = 1;
             it->second.pages[pn] = copy;
             /* update original page */
@@ -207,20 +226,26 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
         tls_protect(it->second.pages[i]);
     }
 
+    unlock();
+
     return 0;
 }
 
 
 int tls_clone(pthread_t tid){
     
+    lock();
+
     pthread_t thread_id = pthread_self();
     auto it1 = tls_map.find(thread_id);
     if(it1 != tls_map.end()){               // The copying thread already has TLS
+        unlock();
         return -1;
     }
 
     auto it2 = tls_map.find(tid);
     if(it2 == tls_map.end()){               // The thread being copied has no TLS
+        unlock();
         return -1;
     }
 
@@ -233,23 +258,28 @@ int tls_clone(pthread_t tid){
         Page *new_page;
         new_page = it2->second.pages[cnt];
         new_page->reference_count++;
-        new_tls.pages[cnt] = new_page;
+        new_tls.pages.push_back(new_page);
     }
 
     tls_map.insert(pair<pthread_t, TLS>(thread_id, new_tls));
 
-    return 0;
+    unlock();
 
+    return 0;
 }
 
 
 void* tls_get_internal_start_address(){
 
+    lock();
+
     pthread_t thread_id = pthread_self();
     auto it = tls_map.find(thread_id);
     if(it == tls_map.end()){               // The current thread has no TLS
+        unlock();
         return NULL;
     }
 
+    unlock();
     return (void*) it->second.pages[0]->page_address;
 }
