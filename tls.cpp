@@ -20,9 +20,9 @@ static map<pthread_t, TLS> tls_map;
 
 
 bool scan_TLS_find_page_fault(unsigned int page_fault){
-    for(auto it1 = tls_map.begin(); it1 != tls_map.end(); it1++){
-        for(auto it2 = it1->second.pages.begin(); it2 != it1->second.pages.end(); it2++){
-            if(it2->page_address == page_fault){
+    for(auto it = tls_map.begin(); it != tls_map.end(); it++){
+        for(int i = 0; i < it->second.page_num; i++){
+            if(it->second.pages[i]->page_address == page_fault){
                 return true;
             }
         }
@@ -32,7 +32,7 @@ bool scan_TLS_find_page_fault(unsigned int page_fault){
 
 
 void page_fault_handler(int sig, siginfo_t *si, void *context){
-    unsigned int page_fault = (unsigned int) si->si_addr & ~(PAGESIZE - 1);
+    unsigned int page_fault = (unsigned long) si->si_addr & ~(PAGESIZE - 1);
     if(scan_TLS_find_page_fault(page_fault) == true){
         pthread_exit(NULL);
     }else{
@@ -78,9 +78,9 @@ int tls_create(unsigned int size){
     for (int cnt = 0; cnt < new_tls.page_num; cnt++) { 
         Page *new_page;
         new_page = (Page *) calloc(1, sizeof(Page));
-        new_page->page_address = (unsigned int) mmap(NULL, PAGESIZE, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+        new_page->page_address = (unsigned long) mmap(NULL, PAGESIZE, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
         new_page->reference_count = 1;
-        new_tls.pages[cnt] = new_page;
+        new_tls.pages.push_back(new_page);
     }
 
     tls_map.insert(pair<pthread_t, TLS>(thread_id, new_tls));
@@ -101,7 +101,7 @@ int tls_destroy(){
         if(it->second.pages[i]->reference_count > 1){
             it->second.pages[i]->reference_count--;
         }else{
-            munmap(it->second.pages[i]->page_address, PAGESIZE);
+            munmap( (void*) it->second.pages[i]->page_address, PAGESIZE);
             free(it->second.pages[i]);
         }
     }
@@ -190,7 +190,7 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
             // this page is shared, create a private copy (COW) */ 
             //Do copy on Write here
             copy = (Page *) calloc(1, sizeof(Page));
-            copy->page_address = (unsigned int) mmap(NULL, PAGESIZE, PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+            copy->page_address = (unsigned long) mmap(NULL, PAGESIZE, PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
             //printf("[+] allocated %x\n", copy->page_address); 
             copy->reference_count = 1;
             it->second.pages[pn] = copy;

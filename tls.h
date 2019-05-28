@@ -18,6 +18,15 @@ int tls_clone(pthread_t tid);
 
 void* tls_get_internal_start_address();
 
+
+// Page Data Structure
+typedef struct {
+	// Define any fields you might need inside here.
+	unsigned long page_address;
+	int reference_count;
+}Page;
+
+
 // TLS Data Structure
 typedef struct {
 	// Define any fields you might need inside here.
@@ -26,12 +35,4 @@ typedef struct {
     unsigned int page_num;
 	vector<Page*> pages;
 }TLS;
-
-// Page Data Structure
-typedef struct {
-	// Define any fields you might need inside here.
-	unsigned int page_address;
-	int reference_count;
-}Page;
-
 

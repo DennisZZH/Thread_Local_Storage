@@ -1,11 +1,23 @@
 all: sample_grader
 
-sample_grader:autograder_main.c library 
-	g++ autograder_main.c library.o -g -o sample_grader
+sample_grader:autograder_main.c threads tls 
+	g++ -g autograder_main.c threads.o tls.o -o sample_grader
 
-library:threads.cpp tls.cpp
-	g++ -g -c threads.cpp tls.cpp -o library.o
+test1:test1.cpp threads tls
+	g++ -g test1.cpp threads.o tls.o -o test1
+
+threads:threads.cpp
+	g++ -g -c threads.cpp -o threads.o
+
+tls:tls.cpp
+	g++ -g -c tls.cpp -o tls.o
 
 clean:
-	rm library.o
+	rm threads.o
+	rm tls.o
 	rm sample_grader
+
+clean_test1:
+	rm threads.o
+	rm tls.o
+	rm test1
