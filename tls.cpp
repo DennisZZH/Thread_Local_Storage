@@ -212,6 +212,9 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
             copy = (Page *) calloc(1, sizeof(Page));
             copy->page_address = (unsigned long) mmap(NULL, PAGESIZE, PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
             copy->reference_count = 1;
+            for(unsigned long i = copy->page_address, j = p->page_address; j < p->page_address + poff; ++i,++j ){
+                *( (char *) i ) = *( (char *) j ); 
+            }
             it->second.pages[pn] = copy;
             /* update original page */
             p->reference_count--; 
