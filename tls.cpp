@@ -208,14 +208,16 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
         p = it->second.pages[pn];
 
         if (p->reference_count > 1) {
+
             // this page is shared, create a private copy (COW) */ 
             copy = (Page *) calloc(1, sizeof(Page));
             copy->page_address = (unsigned long) mmap(NULL, PAGESIZE, PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
             copy->reference_count = 1;
-            for(unsigned long i = copy->page_address, j = p->page_address; j < p->page_address + poff; ++i,++j ){
+            for(unsigned long i = copy->page_address, j = p->page_address; j < p->page_address + PAGESIZE; ++i,++j ){
                 *( (char *) i ) = *( (char *) j ); 
             }
             it->second.pages[pn] = copy;
+            
             /* update original page */
             p->reference_count--; 
             tls_protect(p);
